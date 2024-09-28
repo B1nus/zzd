@@ -1,4 +1,5 @@
 # zzd
 xxd made in Zig
 
-The name and idea for using xxd as a learning exercise comes from [this video](https://www.youtube.com/watch?v=pnnx1bkFXng) by Low Level Learning.
+# Credit
+Credit to Low Level Learning for [this video on Zig](https://www.youtube.com/watch?v=pnnx1bkFXng). The name ```zzd``` is from the video.
