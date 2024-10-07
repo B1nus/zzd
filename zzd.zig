@@ -60,9 +60,15 @@ pub fn main() !void {
     defer arena.allocator().free(buffer);
     var lines = std.mem.window(u8, buffer, chunk_size * columns, chunk_size * columns);
 
+    // const red = "\x1b[91m";
+    const bold = "\x1b[1m";
+    const green = "\x1b[32m";
+    const yellow = "\x1b[33m";
+    const reset = "\x1b[0m";
+
     var line_i: usize = 0;
     while (lines.next()) |line| {
-        try stdout.print("{x:0>8}  ", .{line_i * chunk_size * columns});
+        try stdout.print("{x:0>8}: {s}", .{ line_i * chunk_size * columns, bold });
 
         var empy = false;
         for (0..(chunk_size * columns)) |i| {
@@ -79,19 +85,23 @@ pub fn main() !void {
 
                 const array = [1]u8{line[i]};
                 const as_hex = std.fmt.bytesToHex(array, case);
-                try stdout.print("{s}", .{as_hex});
+                if (line[i] == '\n') {
+                    try stdout.print("{s}{s}", .{ yellow, as_hex });
+                } else {
+                    try stdout.print("{s}{s}", .{ green, as_hex });
+                }
             }
         }
 
         try stdout.print("  ", .{});
 
         for (line) |c| switch (c) {
-            '\n' => std.debug.print("\\n", .{}),
-            '\r' => std.debug.print("\\r", .{}),
-            '\t' => std.debug.print("\\t", .{}),
-            else => std.debug.print("{c}", .{c}),
+            '\n' => std.debug.print("{s}.", .{yellow}),
+            '\r' => std.debug.print("{s}.", .{green}),
+            '\t' => std.debug.print("{s}.", .{green}),
+            else => std.debug.print("{s}{c}", .{ green, c }),
         };
-        try stdout.print("\n", .{});
+        try stdout.print("\n{s}", .{reset});
         line_i += 1;
     }
 }

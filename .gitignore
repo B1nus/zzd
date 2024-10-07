@@ -22,4 +22,4 @@ zig-out/
 zig-cache/
 
 zzd
-zdd.o
+zzd.o
