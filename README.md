@@ -16,3 +16,6 @@ zzd [filename] -e               Use little endian.
 # Note to self
 - Don't forget invlaid values for flags. I.E. 0, g > c etc.
 - Don't forget piping.
+- Don't forget coloring with ANSI.
+- Don't forget EOF.
+- Forget LLL's implementation. Do your own.
