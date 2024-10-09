@@ -2,8 +2,9 @@
 zzd is a hex dumper utility made in zig. It's a clone of the [xxd program](https://github.com/vim/vim/blob/master/src/xxd/xxd.c) and the name is from a [Low Level Learning video](https://www.youtube.com/watch?v=pnnx1bkFXng). Consider it my solution to [this coding challenge](https://codingchallenges.fyi/challenges/challenge-xxd/).
 
 # Usage
-Use `$ zig build-exe zzd.zig` to build the executable and use `$ ./zzd [filename]` to make a hex dump. There are 7 flags available in `zzd`:
+Use `$ zig build-exe zzd.zig` to build the executable and use `$ ./zzd [filename]` to make a hex dump. There are 8 flags available in `zzd`:
 `````
+zzd [filename] -h               Print help
 zzd [filename] -r               Revert hex dump to binary.
 zzd [filename] -u               Upper-case hex letters.
 zzd [filename] -c [columns]     Bytes per line. Defaults to 16.
