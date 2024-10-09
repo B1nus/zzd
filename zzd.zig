@@ -1,84 +1,66 @@
 const std = @import("std");
 const flag_parser = @import("flags.zig");
-const parse_flags = flag_parser.parse_flags;
+const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut().writer();
 var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 
-pub fn main() !void {
-    const args = try std.process.argsAlloc(arena.allocator());
-    defer std.process.argsFree(arena.allocator(), args);
+const ReadError = error{
+    OutOfMemory,
+    OffsetTooFar,
+};
 
-    // Check argument amounts
-    const flags = parse_flags(args[1..]);
+// Don't forget to defer!
+pub fn read_all(allocator: std.mem.Allocator, file: std.fs.File, offset: usize, max: ?usize) ReadError!std.ArrayList(u8) {
+    const reader = file.reader();
+    const max_append_size = max orelse std.math.maxInt(usize);
+    var bytes = std.ArrayList(u8).init(allocator);
 
-    std.debug.print("{any}\n", .{flags});
+    reader.skipBytes(offset, .{}) catch {
+        return ReadError.OffsetTooFar;
+    };
 
-    return;
+    reader.readAllArrayList(&bytes, max_append_size) catch |e| switch (e) {
+        std.mem.Allocator.Error.OutOfMemory => return ReadError.OutOfMemory,
+        else => {},
+    };
 
-    // // Get file handle
-    // const path = args[1];
-    // const file = std.fs.cwd().openFile(path, .{ .mode = .read_only }) catch |err| switch (err) {
-    //     error.FileNotFound => {
-    //         std.debug.print("File '{s}' not found: \n", .{path});
-    //         return zzdError.FileNotFound;
-    //     },
-    //     else => return err,
-    // };
-    //
-    // // Read
-    // const reader = file.reader();
-    // const stat = try file.stat();
-    // const buffer = try arena.allocator().alloc(u8, stat.size);
-    // _ = try reader.read(buffer);
-    // defer arena.allocator().free(buffer);
-    // var lines = std.mem.window(u8, buffer, chunk_size * columns, chunk_size * columns);
-    //
-    // // const red = "\x1b[91m";
-    // const bold = "\x1b[1m";
-    // const green = "\x1b[32m";
-    // const yellow = "\x1b[33m";
-    // const reset = "\x1b[0m";
-    //
-    // var line_i: usize = 0;
-    // while (lines.next()) |line| {
-    //     try stdout.print("{x:0>8}: {s}", .{ line_i * chunk_size * columns, bold });
-    //
-    //     var empy = false;
-    //     for (0..(chunk_size * columns)) |i| {
-    //         // Column
-    //         if (i % chunk_size == 0 and i > 0) {
-    //             try stdout.print(" ", .{});
-    //         }
-    //
-    //         if (empy) {
-    //             try stdout.print("  ", .{});
-    //         } else {
-    //             // End of file
-    //             empy = (i + line_i * chunk_size * columns + 1 >= stat.size);
-    //
-    //             const array = [1]u8{line[i]};
-    //             const as_hex = std.fmt.bytesToHex(array, case);
-    //             if (line[i] == '\n') {
-    //                 try stdout.print("{s}{s}", .{ yellow, as_hex });
-    //             } else {
-    //                 try stdout.print("{s}{s}", .{ green, as_hex });
-    //             }
-    //         }
-    //     }
-    //
-    //     try stdout.print("  ", .{});
-    //
-    //     for (line) |c| switch (c) {
-    //         '\n' => std.debug.print("{s}.", .{yellow}),
-    //         '\r' => std.debug.print("{s}.", .{green}),
-    //         '\t' => std.debug.print("{s}.", .{green}),
-    //         else => std.debug.print("{s}{c}", .{ green, c }),
-    //     };
-    //     try stdout.print("\n{s}", .{reset});
-    //     line_i += 1;
-    // }
+    return bytes;
 }
+// const red = "\x1b[91m";
+// const bold = "\x1b[1m";
+// const green = "\x1b[32m";
+// const yellow = "\x1b[33m";
+// const reset = "\x1b[0m";
+pub fn main() !void {
+    const allocator = arena.allocator();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
 
-pub fn bytes(file: []const u8) []u8 {
-    return file;
+    const flags = try flag_parser.parse_flags(args[2..]);
+    var max_bytes: usize = std.math.maxInt(usize);
+
+    if (flags.lines != null) {
+        max_bytes = (flags.lines.?) * flags.cols;
+    }
+
+    var file = stdin;
+    if (stdin.isTty()) {
+        if (args.len < 2) {
+            try stdout.print("zzd is missing the file argument. Please write like so `$ zzd file`", .{});
+            std.process.exit(0);
+        }
+
+        const argfile = std.fs.cwd().openFile(args[1], .{}) catch |e| switch (e) {
+            std.fs.File.OpenError.FileNotFound => {
+                try stdout.print("zzd could not find the file {s}", .{args[1]});
+                return e;
+            },
+            else => return e,
+        };
+
+        file = argfile;
+    }
+
+    const bytes = try read_all(allocator, file, flags.offset, max_bytes);
+    try stdout.print("{any}", .{bytes});
 }

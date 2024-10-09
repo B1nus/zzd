@@ -1,5 +1,5 @@
 const std = @import("std");
-const cmp = std.mem.eql;
+const max_cols = 256;
 
 const FlagError = error{
     UnexpectedNumber,
@@ -7,7 +7,7 @@ const FlagError = error{
     InvalidFlag,
     ExpectedColumn,
     InvalidColumn,
-    NotInColumnRange,
+    TooManyColumns,
     ExpectedGroup,
     InvalidGroup,
     ExpectedOffset,
@@ -40,7 +40,12 @@ pub fn parse_flags(flag_args: [][:0]u8) FlagError!Flags {
                     'r' => flags.revert = true,
                     'u' => flags.upper = true,
                     'e' => flags.little_endian = true,
-                    'c' => flags.cols = try parse_flag_number(flag_args, &i, FlagError.ExpectedColumn, FlagError.InvalidColumn, 1),
+                    'c' => {
+                        flags.cols = try parse_flag_number(flag_args, &i, FlagError.ExpectedColumn, FlagError.InvalidColumn, 1);
+                        if (flags.cols > max_cols) {
+                            return FlagError.TooManyColumns;
+                        }
+                    },
                     'g' => flags.group = try parse_flag_number(flag_args, &i, FlagError.ExpectedGroup, FlagError.InvalidGroup, 1),
                     's' => flags.offset = try parse_flag_number(flag_args, &i, FlagError.ExpectedOffset, FlagError.InvalidOffset, 0),
                     'l' => flags.lines = try parse_flag_number(flag_args, &i, FlagError.ExpectedLines, FlagError.InvalidLines, 1),
