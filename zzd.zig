@@ -76,7 +76,7 @@ pub fn print_help() void {
         \\
         \\The available flags are the following
         \\zzd -h                          Print help text.
-        \\zzd [filename] -r               Revert hex dump to binary.
+        \\zzd [filename] -r               Revert hex dump.
         \\zzd [filename] -u               Upper-case hex letters.
         \\zzd [filename] -c [columns]     Bytes per line. Defaults to 16. Max: 256.
         \\zzd [filename] -g [group_size]  Bytes per group. Defaults to 2. Use o to disable grouping.
@@ -125,38 +125,88 @@ pub fn main() !void {
     const bytes = try read_all(allocator, file, flags.offset, max_bytes);
     defer _ = bytes.deinit(); // Never forgetti moms spaghetti
 
-    hex_dump(flags, bytes) catch {
-        zzd_error("can't print to stdout");
-    };
+    if (flags.revert) {
+        if (flags.little_endian) {
+            zzd_error("can't revert with little-endian enocding");
+        }
+        const parsed_bytes = parse_hex(bytes, allocator) catch {
+            zzd_error("can't revert this");
+            unreachable;
+        };
+        _ = stdout.write(parsed_bytes.items) catch {
+            zzd_error("can't print to stdout");
+            unreachable;
+        };
+    } else {
+        hex_dump(flags, bytes) catch {
+            zzd_error("can't print to stdout");
+        };
+    }
+}
+
+pub fn parse_hex(bytes: std.ArrayList(u8), allocator: std.mem.Allocator) !std.ArrayList(u8) {
+    var parsed = std.ArrayList(u8).init(allocator);
+    var lines = std.mem.splitScalar(u8, bytes.items, '\n');
+
+    while (lines.next()) |line| {
+        if (line.len < 10) {
+            return parsed;
+        }
+        var hex = std.mem.splitSequence(u8, line[10..], "  ");
+        const hex_slice = hex.next() orelse "";
+        var columns = std.mem.splitScalar(u8, hex_slice, ' ');
+        while (columns.next()) |column| {
+            var out = [_]u8{undefined} ** 256;
+            const hex_to_bytes = try std.fmt.hexToBytes(&out, column);
+            _ = try parsed.appendSlice(hex_to_bytes);
+        }
+    }
+    return parsed;
 }
 
 pub fn hex_dump(flags: flag_parser.Flags, bytes: std.ArrayList(u8)) !void {
     var lines = std.mem.window(u8, bytes.items, flags.cols, flags.cols);
     var offset = flags.offset;
-    // const case = if (flags.upper) std.fmt.Case.upper else std.fmt.Case.lower;
     while (lines.next()) |line| {
-        try std.fmt.format(stdout, reset ++ "{x:0>8}: " ++ bold ++ green, .{offset});
-        for (line, 0..) |c, i| {
-            if (c == 10) try std.fmt.format(stdout, yellow, .{}) else try std.fmt.format(stdout, green, .{});
-            if (flags.upper) {
-                try std.fmt.format(stdout, "{X:0>2}", .{c});
+        if (stdout.context.isTty()) {
+            try std.fmt.format(stdout, reset ++ "{x:0>8}: " ++ bold ++ green, .{offset});
+        } else {
+            try std.fmt.format(stdout, "{x:0>8}: ", .{offset});
+        }
+
+        for (0..flags.cols) |i| {
+            if (i >= line.len) {
+                try std.fmt.format(stdout, "  ", .{});
             } else {
-                try std.fmt.format(stdout, "{x:0>2}", .{c});
+                const c = line[i];
+                if (stdout.context.isTty()) {
+                    if (c == 10) try std.fmt.format(stdout, yellow, .{}) else try std.fmt.format(stdout, green, .{});
+                }
+                if (flags.upper) {
+                    try std.fmt.format(stdout, "{X:0>2}", .{c});
+                } else {
+                    try std.fmt.format(stdout, "{x:0>2}", .{c});
+                }
             }
             if ((i + 1) % flags.group == 0) {
                 try std.fmt.format(stdout, " ", .{});
             }
         }
-        for (0..flags.cols - line.len + 2) |_| {
-            try std.fmt.format(stdout, " ", .{});
-        }
+        try std.fmt.format(stdout, " ", .{});
         for (line) |c| {
-            const new_c: []const u8 = switch (c) {
-                '\n', 9, 13 => yellow ++ ".",
-                32...126 => green ++ [1]u8{c},
-                else => red ++ [1]u8{c},
+            if (stdout.context.isTty()) {
+                const color = switch (c) {
+                    '\n', 9, 13 => yellow,
+                    32...126 => green,
+                    else => red,
+                };
+                try std.fmt.format(stdout, "{s}", .{color});
+            }
+            const new_c = switch (c) {
+                '\n', 9, 13 => '.',
+                else => c,
             };
-            try std.fmt.format(stdout, "{s}", .{new_c});
+            try std.fmt.format(stdout, "{c}", .{new_c});
         }
         offset += flags.cols;
         try std.fmt.format(stdout, "\n", .{});
