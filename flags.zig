@@ -1,5 +1,5 @@
 const std = @import("std");
-const max_cols = 256;
+pub const max_cols = 256;
 
 pub const FlagError = error{
     UnexpectedNumber,

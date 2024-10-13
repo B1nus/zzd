@@ -174,11 +174,17 @@ pub fn hex_dump(flags: flag_parser.Flags, bytes: std.ArrayList(u8)) !void {
             try std.fmt.format(stdout, "{x:0>8}: ", .{offset});
         }
 
+        var group_end: usize = flags.group;
         for (0..flags.cols) |i| {
             if (i >= line.len) {
-                try std.fmt.format(stdout, "  ", .{});
+                if (!flags.little_endian) {
+                    try std.fmt.format(stdout, "  ", .{});
+                }
             } else {
-                const c = line[i];
+                var c: usize = line[i];
+                if (flags.little_endian) {
+                    c = line[@min(group_end, line.len) - (i % flags.group) - 1];
+                }
                 if (stdout.context.isTty()) {
                     if (c == 10) try std.fmt.format(stdout, yellow, .{}) else try std.fmt.format(stdout, green, .{});
                 }
@@ -188,11 +194,17 @@ pub fn hex_dump(flags: flag_parser.Flags, bytes: std.ArrayList(u8)) !void {
                     try std.fmt.format(stdout, "{x:0>2}", .{c});
                 }
             }
-            if ((i + 1) % flags.group == 0) {
+            if ((i + 1) % flags.group == 0 and i != flags.cols - 1) {
                 try std.fmt.format(stdout, " ", .{});
+                group_end += flags.group;
+                if (group_end > line.len) {
+                    for (0..group_end - line.len) |_| {
+                        try std.fmt.format(stdout, "  ", .{});
+                    }
+                }
             }
         }
-        try std.fmt.format(stdout, " ", .{});
+        try std.fmt.format(stdout, "  ", .{});
         for (line) |c| {
             if (stdout.context.isTty()) {
                 const color = switch (c) {
