@@ -2,7 +2,7 @@
 zzd is a hex dumper utility made in zig. It's a clone of the [xxd program](https://github.com/vim/vim/blob/master/src/xxd/xxd.c) and the name is from a [Low Level Learning video](https://www.youtube.com/watch?v=pnnx1bkFXng). Consider it my solution to [this coding challenge](https://codingchallenges.fyi/challenges/challenge-xxd/).
 
 > [!NOTE]
-> This is not a full clone of xxd. It only implements the basic features of xxd. Also not that zzd does some things differently from xxd. For example: zzd has the same defaults regardless of mode unlike xxd. zzd is not stress tested either, so expect bugs to happen.
+> This is not a full clone of xxd. It only implements the basic features of xxd. Also note that zzd does some things differently from xxd. For example: zzd has the same defaults regardless of mode unlike xxd. zzd is not stress tested either, so expect bugs to happen.
 
 # Usage
 Use `$ zig build-exe zzd.zig` to build the executable and use `$ ./zzd [filename]` to make a hex dump. There are 8 flags available in `zzd`:
