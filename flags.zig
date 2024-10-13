@@ -1,13 +1,13 @@
 const std = @import("std");
-const cmp = std.mem.eql;
+pub const max_cols = 256;
 
-const FlagError = error{
+pub const FlagError = error{
     UnexpectedNumber,
     ExpectedFlag,
     InvalidFlag,
     ExpectedColumn,
     InvalidColumn,
-    NotInColumnRange,
+    TooManyColumns,
     ExpectedGroup,
     InvalidGroup,
     ExpectedOffset,
@@ -16,7 +16,7 @@ const FlagError = error{
     InvalidLines,
 };
 
-const Flags = struct {
+pub const Flags = struct {
     revert: bool = false,
     upper: bool = false,
     cols: usize = 16,
@@ -40,10 +40,15 @@ pub fn parse_flags(flag_args: [][:0]u8) FlagError!Flags {
                     'r' => flags.revert = true,
                     'u' => flags.upper = true,
                     'e' => flags.little_endian = true,
-                    'c' => flags.cols = try parse_flag_number(flag_args, &i, FlagError.ExpectedColumn, FlagError.InvalidColumn, 1),
-                    'g' => flags.group = try parse_flag_number(flag_args, &i, FlagError.ExpectedGroup, FlagError.InvalidGroup, 1),
-                    's' => flags.offset = try parse_flag_number(flag_args, &i, FlagError.ExpectedOffset, FlagError.InvalidOffset, 0),
-                    'l' => flags.lines = try parse_flag_number(flag_args, &i, FlagError.ExpectedLines, FlagError.InvalidLines, 1),
+                    'c' => {
+                        flags.cols = try parse_flag_number(flag_args, &i, FlagError.ExpectedColumn, FlagError.InvalidColumn);
+                        if (flags.cols > max_cols) {
+                            return FlagError.TooManyColumns;
+                        }
+                    },
+                    'g' => flags.group = try parse_flag_number(flag_args, &i, FlagError.ExpectedGroup, FlagError.InvalidGroup),
+                    's' => flags.offset = try parse_flag_number(flag_args, &i, FlagError.ExpectedOffset, FlagError.InvalidOffset),
+                    'l' => flags.lines = try parse_flag_number(flag_args, &i, FlagError.ExpectedLines, FlagError.InvalidLines),
                     else => return FlagError.InvalidFlag,
                 }
             } else {
@@ -57,18 +62,22 @@ pub fn parse_flags(flag_args: [][:0]u8) FlagError!Flags {
     return flags;
 }
 
-pub fn parse_flag_number(flag_args: [][:0]u8, i: *usize, expected: FlagError, invalid: FlagError, min: usize) FlagError!usize {
+pub fn parse_flag_number(flag_args: [][:0]u8, i: *usize, expected: FlagError, invalid: FlagError) FlagError!usize {
     if (flag_args.len >= i.* + 2) {
         i.* += 1;
         switch (flag_args[i.*][0]) {
             '0'...'9' => {
-                const num = std.fmt.parseInt(usize, flag_args[i.*], 10) catch {
+                return std.fmt.parseInt(usize, flag_args[i.*], 10) catch {
                     return invalid;
                 };
-                if (num < min) {
-                    return invalid;
-                } else {
-                    return num;
+            },
+            '-' => {
+                if (flag_args[i.*].len < 2) {
+                    return expected;
+                }
+                switch (flag_args[i.*][1]) {
+                    '0'...'9' => return invalid,
+                    else => return expected,
                 }
             },
             else => {
